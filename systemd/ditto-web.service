@@ -1,0 +1,13 @@
+[Unit]
+Description=DITTO dashboard (static web server)
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/ditto/ditto.env
+# Serves /opt/ditto/web (parent of DITTO_DATA) on DITTO_PORT.
+ExecStart=/usr/bin/python3 /opt/ditto/collector/ditto_collector.py serve
+Restart=on-failure
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
