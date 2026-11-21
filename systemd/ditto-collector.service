@@ -1,0 +1,15 @@
+[Unit]
+Description=DITTO collector (honeypot/tarpit stats + malware analysis)
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ditto/ditto.env
+ExecStart=/usr/bin/python3 /opt/ditto/collector/ditto_collector.py all
+Nice=10
+IOSchedulingClass=idle
+# Light hardening (adjust to your paths)
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/ditto/web/data
+PrivateTmp=true
