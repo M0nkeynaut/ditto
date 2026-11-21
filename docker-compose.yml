@@ -1,0 +1,63 @@
+# DITTO - Deception, Intrusion & Tarpit Threat Observatory
+# Honeypot (Cowrie) + Tarpit (endlessh) + static malware analysis + dashboard.
+#
+# IMPORTANT: ports 22 and 23 below are the honeypot. If this host runs its own
+# SSH on 22, move it first (or map Cowrie to another host port and forward 22 at
+# your router/firewall). See the README "Security" section before exposing this.
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    restart: unless-stopped
+    ports:
+      - "${COWRIE_SSH_PORT:-22}:2222"      # SSH honeypot
+      - "${COWRIE_TELNET_PORT:-23}:2223"   # Telnet honeypot
+    environment:
+      - COWRIE_TELNET_ENABLED=yes
+      - COWRIE_HONEYPOT_HOSTNAME=${COWRIE_HOSTNAME:-srv-web01}
+    volumes:
+      - cowrie-var:/cowrie/cowrie-git/var
+
+  endlessh:
+    build: ./endlessh
+    restart: unless-stopped
+    ports:
+      - "${TARPIT_PORT:-2222}:2222"        # SSH tarpit
+    volumes:
+      - endlessh-logs:/logs
+
+  collector:
+    build: ./collector
+    restart: unless-stopped
+    environment:
+      - COWRIE_LOG_DIR=/cowrie-var/log/cowrie
+      - COWRIE_DL_DIR=/cowrie-var/lib/cowrie/downloads
+      - ENDLESSH_LOG=/endlessh/endlessh.log
+      - GEOIP_DB=/geoip/country.mmdb
+      - DITTO_DATA=/web/data
+      - DITTO_INTERVAL=${DITTO_INTERVAL:-120}
+      - DITTO_LOOKBACK_DAYS=${DITTO_LOOKBACK_DAYS:-7}
+    volumes:
+      - cowrie-var:/cowrie-var:ro
+      - endlessh-logs:/endlessh:ro
+      - ditto-data:/web/data
+      - ./geoip:/geoip:ro
+    depends_on:
+      - cowrie
+      - endlessh
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${DITTO_WEB_PORT:-8080}:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ditto-data:/usr/share/nginx/html/data:ro
+    depends_on:
+      - collector
+
+volumes:
+  cowrie-var:
+  endlessh-logs:
+  ditto-data:
