@@ -1,0 +1,7 @@
+# endlessh tarpit config (classic endlessh, Debian package)
+# Listens on 2222 and feeds connecting scanners an endless SSH banner.
+Port 2222
+Delay 10000
+MaxLineLength 32
+MaxClients 4096
+LogLevel 1
