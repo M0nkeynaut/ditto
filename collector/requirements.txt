@@ -1,0 +1,5 @@
+# Only needed for a pip-based (non-Debian) install. On Debian/Ubuntu prefer the
+# system packages: python3-pyelftools python3-ssdeep python3-maxminddb binutils file
+pyelftools>=0.29
+ssdeep>=3.4         # needs libfuzzy-dev + build tools to build from source
+maxminddb>=2.2      # optional, only for country lookups
