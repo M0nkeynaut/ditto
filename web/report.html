@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Datei-Reports Honeypot</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --panel2:#f0f1f4; --line:#e2e4e9;
+  --text:#1b1d22; --muted:#687080; --accent:#d64545; --accent2:#c026a0;
+  --ok:#1f9d55; --warn:#d99a00; --bad:#d64545; --info:#3b7ddd;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --text:#e8eaef; --muted:#8c94a4; --accent:#ef5b5b; --accent2:#e05ac0;
+    --ok:#35c27a; --warn:#f0b429; --bad:#ef5b5b; --info:#5b9cff; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--info)}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 16px 40px}
+header{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:19px;margin:0;display:flex;align-items:center;gap:10px}
+h1 a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500}
+h1 a:hover{color:var(--accent)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.help{font-size:12.5px;color:var(--muted);margin:-2px 0 12px;max-width:90ch}
+details.about{padding:14px 16px;margin-bottom:14px}
+details.about summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between}
+details.about summary::-webkit-details-marker{display:none}
+details.about summary::after{content:"+";color:var(--muted)} details.about[open] summary::after{content:"−"}
+details.about p{font-size:13px;margin:10px 0 0;max-width:95ch}
+.layout{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;align-items:start}
+.list{padding:10px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.filters input,.filters select{font:inherit;font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.filters input{flex:1;min-width:120px}
+.rows{display:flex;flex-direction:column;gap:6px;max-height:72vh;overflow-y:auto}
+.row{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:2px 8px;font:inherit;color:inherit}
+.row:hover{border-color:var(--accent)}
+.row[aria-selected="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel))}
+.row .h{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .fam{font-size:12px;color:var(--muted);white-space:nowrap}
+.row .meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:2px}
+.badge{font-size:10.5px;padding:1px 6px;border-radius:5px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.badge.arch{background:color-mix(in srgb,var(--info) 18%,var(--panel2));color:var(--text)}
+.badge.fam{background:color-mix(in srgb,var(--accent) 18%,var(--panel2));color:var(--text)}
+.badge.script{background:color-mix(in srgb,var(--warn) 20%,var(--panel2));color:var(--text)}
+.badge.go{background:color-mix(in srgb,var(--accent2) 18%,var(--panel2));color:var(--text)}
+.detail{padding:0;overflow:hidden}
+.detail .empty{padding:40px 16px;color:var(--muted);text-align:center}
+.dhead{padding:14px 16px;border-bottom:1px solid var(--line)}
+.dhead .sha{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;word-break:break-all;color:var(--muted)}
+.dhead h2{margin:4px 0 8px;font-size:18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.conf{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.conf.hoch{background:color-mix(in srgb,var(--bad) 18%,var(--panel));border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.conf.mittel{background:color-mix(in srgb,var(--warn) 18%,var(--panel))}
+.dhead .links{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px;margin-top:4px}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:none}
+.sec h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.kv dt{color:var(--muted);white-space:nowrap}
+.kv dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;word-break:break-all}
+.kv dd.plain{font-family:inherit}
+.flag-yes{color:var(--ok)} .flag-no{color:var(--bad)}
+table.t{width:100%;border-collapse:collapse;font-size:12px}
+table.t th{text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);padding:4px 8px;white-space:nowrap}
+table.t td{border-bottom:1px solid var(--line);padding:4px 8px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px}
+table.t tr:last-child td{border-bottom:none}
+.rwx{letter-spacing:1px}
+.caps{display:flex;flex-direction:column;gap:7px}
+.cap{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;align-items:baseline}
+.cap .cl{font-size:12.5px}
+.cap .ce{grid-column:2;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:var(--muted);word-break:break-all}
+.cap .cd{width:7px;height:7px;border-radius:2px;background:var(--accent);margin-top:5px}
+.ioc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.iocbox h4{margin:0 0 5px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.iocbox .box{background:var(--panel2);border-radius:8px;padding:7px 9px;max-height:170px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-family:ui-monospace,monospace;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--panel2)}
+pre.code{background:var(--panel2);border-radius:8px;padding:10px;overflow:auto;font-size:11.5px;max-height:360px;margin:0}
+.muted{color:var(--muted)}
+.desc{font-size:13px;margin:0 0 8px;max-width:95ch}
+.desc:last-child{margin-bottom:0}
+.desc b{font-weight:600}
+.rcount{font-size:11.5px;color:var(--muted);margin:0 2px 7px}
+.warnbox{background:color-mix(in srgb,var(--warn) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:8px;padding:8px 10px;font-size:12.5px;margin-top:8px}
+.toggle{background:none;border:none;color:var(--info);font:inherit;font-size:12px;cursor:pointer;padding:0;margin-top:6px}
+@media (max-width:860px){ .layout{grid-template-columns:1fr} .rows{max-height:300px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Datei-Reports <a href="index.html">← Dashboard</a></h1>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <details class="about panel">
+    <summary>Was das ist</summary>
+    <p>Hier liegen die Dateien, die Angreifer im Honeypot nachladen wollten, fast immer Schadsoftware für IoT-Botnetze. Jede Datei wird <b>statisch</b> untersucht: Sie wird gelesen und zerlegt, aber nie ausgeführt. Der Report zeigt Hashes zum Nachschlagen (etwa bei VirusTotal), den Aufbau der ELF-Programmdatei, die enthaltenen Zeichenketten mit Hinweisen auf Steuerserver und Angriffsfunktionen sowie eine Einschätzung der Schadsoftware-Familie. Die Familien-Einschätzung beruht auf Mustern und kann bei gepackten oder gestrippten Dateien „unbestimmt“ bleiben, obwohl die Datei bösartig ist.</p>
+  </details>
+
+  <div class="layout">
+    <div class="list panel">
+      <div class="filters">
+        <input type="search" id="q" placeholder="Hash, Familie, IP, Land, Server, Befehl …" aria-label="Suchen">
+        <select id="fkind" aria-label="Typ"><option value="">alle Typen</option><option>ELF</option><option>Script/Text</option><option>Daten/unbekannt</option></select>
+        <select id="farch" aria-label="Architektur"><option value="">alle Arch.</option></select>
+      </div>
+      <div class="rcount" id="rcount"></div>
+      <div class="rows" id="rows"></div>
+    </div>
+    <div class="detail panel" id="detail"><div class="empty">Wähle links ein Sample.</div></div>
+  </div>
+
+  <p class="help" style="margin-top:16px">Analyse durch den DITTO-Collector (readelf/pyelftools, Hashes und Zeichenketten in Python). Die Dateien bleiben im Honeypot und werden nicht ausgeführt. Die Familien-Einschätzung beruht auf typischen Markern von Mirai, Gafgyt, Tsunami und Krypto-Minern und kann unvollständig sein. DITTO ist vibe-coded mit Claude und nicht sicherheitsauditiert.</p>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf = new Intl.NumberFormat("de-CH");
+const n = v => nf.format(v || 0);
+const kb = b => b >= 1048576 ? (b/1048576).toFixed(2).replace(".",",")+" MB" : b >= 1024 ? (b/1024).toFixed(1).replace(".",",")+" KB" : b+" B";
+const fmtTime = t => t ? new Date(t*1000).toLocaleString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "–";
+function ago(t){ if(!t) return "–"; const s=Math.max(0,Date.now()/1000-t); return s<3600?"vor "+Math.max(1,Math.round(s/60))+" min":s<86400?"vor "+Math.round(s/3600)+" h":"vor "+Math.round(s/86400)+" Tagen"; }
+let DATA = null, CC = {}, SEL = null;
+
+const KIND_BADGE = s => {
+  if (s.family && s.family.name === "Go-Programm") return `<span class="badge go">Go</span>`;
+  if (s.kind === "ELF") return `<span class="badge arch">${esc((s.elf&&s.elf.machine)||"ELF")}</span>`;
+  if (s.kind === "Script/Text") return `<span class="badge script">Script</span>`;
+  return `<span class="badge">${esc(s.kind)}</span>`;
+};
+const ccName = cc => cc==="??"||!cc ? "?" : (CC[cc]||cc);
+
+function hayOf(s){
+  if (s._hay) return s._hay;
+  const dl = s.download||{}, io = s.ioc||{}, de = s.description||{}, fam = s.family||{}, e = s.elf||{};
+  s._hay = [
+    s.id, s.md5, s.sha1, s.kind, e.machine, e.machine_raw, fam.name, (fam.evidence||[]).join(" "),
+    s.magic, de.role, de.summary, de.usage, (de.capabilities||[]).join(" "),
+    (dl.servers||[]).join(" "), (dl.urls||[]).join(" "), (dl.protocols||[]).join(" "),
+    (dl.src_ips||[]).map(i => i.ip + " " + i.cc + " " + ccName(i.cc)).join(" "),
+    (io.ips||[]).join(" "), (io.domains||[]).join(" "), (io.urls||[]).join(" "),
+    (io.commands||[]).join(" "), (io.pools||[]).join(" "),
+    (s.capabilities||[]).map(c => c.label).join(" "),
+  ].join(" ").toLowerCase();
+  return s._hay;
+}
+
+function renderList(){
+  const q = $("q").value.trim().toLowerCase(), fk = $("fkind").value, fa = $("farch").value;
+  const rows = (DATA.samples||[]).filter(s => {
+    if (fk && s.kind !== fk) return false;
+    if (fa && !(s.elf && s.elf.machine === fa)) return false;
+    if (q && !hayOf(s).includes(q)) return false;
+    return true;
+  });
+  $("rcount").textContent = (DATA.samples||[]).length ? `${n(rows.length)} von ${n(DATA.samples.length)} Samples` : "";
+  $("rows").innerHTML = rows.length ? rows.map(s => {
+    const dl = s.download || {}, cc = (dl.src_ips||[])[0];
+    const fam = s.family && s.family.name !== "unbestimmt" ? s.family.name : "";
+    return `<button class="row" data-id="${esc(s.id)}" aria-selected="${s.id===SEL}">
+      <span class="h">${esc(s.id.slice(0,24))}…</span>
+      <span class="fam">${esc(fam)}</span>
+      <span class="meta">${KIND_BADGE(s)}${fam?`<span class="badge fam">${esc(fam)}</span>`:""}
+        <span class="badge">${kb(s.size)}</span>
+        ${dl.count?`<span class="badge">${n(dl.count)}×</span>`:""}
+        ${cc?`<span class="badge">${esc(ccName(cc.cc))}</span>`:""}
+        <span class="badge">${ago(dl.last)}</span></span>
+    </button>`;
+  }).join("") : `<div class="empty muted">Kein Sample passt.</div>`;
+  $("rows").querySelectorAll(".row").forEach(b => b.onclick = () => select(b.dataset.id));
+}
+
+function kv(pairs){
+  return `<dl class="kv">` + pairs.filter(p=>p).map(([k,v,plain]) => `<dt>${esc(k)}</dt><dd class="${plain?"plain":""}">${v}</dd>`).join("") + `</dl>`;
+}
+const flag = b => b===true?`<span class="flag-yes">ja</span>`:b===false?`<span class="flag-no">nein</span>`:`<span class="muted">?</span>`;
+
+function iocBox(title, arr, cls){
+  if (!arr || !arr.length) return "";
+  return `<div class="iocbox"><h4>${esc(title)}<span class="muted">${n(arr.length)}</span></h4><div class="box">${arr.map(esc).join("\n")}</div></div>`;
+}
+
+function detailHTML(s){
+  const e = s.elf, dl = s.download, fam = s.family || {}, io = s.ioc || {}, tc = s.toolchain || {};
+  let h = `<div class="dhead">
+    <div class="sha">${esc(s.id)}</div>
+    <h2>${KIND_BADGE(s)} ${esc(e&&e.machine||s.kind)}
+      ${fam.name && fam.name!=="unbestimmt" ? `<span class="conf ${fam.confidence==="hoch"?"hoch":fam.confidence==="mittel"?"mittel":""}">${esc(fam.name)}${fam.confidence&&fam.confidence!=="info"?" · "+esc(fam.confidence):""}</span>`:`<span class="conf muted">Familie unbestimmt</span>`}
+    </h2>
+    ${fam.note?`<div class="warnbox">${esc(fam.note)}</div>`:""}
+    <div class="links">
+      <a href="https://www.virustotal.com/gui/file/${esc(s.id)}" target="_blank" rel="noopener">VirusTotal ↗</a>
+      <a href="https://bazaar.abuse.ch/sample/${esc(s.id)}/" target="_blank" rel="noopener">MalwareBazaar ↗</a>
+      ${fam.evidence&&fam.evidence.length?`<span class="muted">Treffer: ${esc(fam.evidence.join(", "))}</span>`:""}
+    </div>
+  </div>`;
+
+  const de = s.description || {};
+  if (de.summary){
+    h += `<div class="sec"><h3>Beschreibung${de.role ? " · " + esc(de.role) : ""}</h3>
+      <p class="desc">${esc(de.summary)}</p>
+      ${de.impact ? `<p class="desc"><b>Wirkung:</b> ${esc(de.impact)}</p>` : ""}
+      ${de.usage ? `<p class="desc"><b>Eingesetzt für:</b> ${esc(de.usage)}</p>` : ""}
+      ${(de.capabilities && de.capabilities.length) ? `<p class="desc"><b>Diese Datei kann u.a.:</b> ${esc(de.capabilities.join("; "))}.</p>` : ""}
+      ${de.aka ? `<p class="desc muted">${esc(de.aka)}</p>` : ""}
+      <p class="desc muted">Die Einschätzung beruht auf Mustererkennung und kann unvollständig sein.</p>
+    </div>`;
+  }
+
+  if (dl){
+    const ips = (dl.src_ips||[]).map(i => `${i.ip}${i.cc&&i.cc!=="??"?" ("+ccName(i.cc)+")":""} ×${i.count}`);
+    h += `<div class="sec"><h3>Herkunft im Honeypot</h3>` + kv([
+      ["geladen", `${n(dl.count)}×`, true],
+      ["zuerst", fmtTime(dl.first), true],
+      ["zuletzt", fmtTime(dl.last), true],
+      ["Protokoll", esc((dl.protocols||[]).join(", ")||"–"), true],
+      ["Dateiname am Server", `<div class="chips">${(dl.servers||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join("")||"–"}</div>`, true],
+      ["Quell-IPs", `<div class="chips">${ips.map(x=>`<span class="chip">${esc(x)}</span>`).join("")||"–"}</div>`, true],
+      ["URLs", `<div class="box" style="max-height:120px">${(dl.urls||[]).map(esc).join("\n")||"–"}</div>`, true],
+    ]) + `</div>`;
+  }
+
+  h += `<div class="sec"><h3>Identität</h3>` + kv([
+    ["Größe", kb(s.size)+` (${n(s.size)} Bytes)`, true],
+    ["Entropie", `${s.entropy} / 8.0 ${s.entropy>7.2?'<span class="muted">(hoch, evtl. gepackt)</span>':""}`, true],
+    ["Typ (file)", esc(s.magic||"–"), true],
+    tc.compiler?["Compiler", esc(tc.compiler), true]:null,
+    tc.libc?["libc", esc(tc.libc), true]:null,
+    ["MD5", esc(s.md5)],
+    ["SHA-1", esc(s.sha1)],
+    ["SHA-256", esc(s.sha256||s.id)],
+    s.ssdeep?["ssdeep", esc(s.ssdeep)]:null,
+  ]) + `</div>`;
+
+  if (e && !e.error || (e && e.class)){
+    h += `<div class="sec"><h3>ELF-Kopf</h3>` + kv([
+      ["Klasse", esc(e.class), true],
+      ["Byte-Reihenfolge", esc(e.endian==="little"?"little-endian":"big-endian"), true],
+      ["Typ", esc(e.type), true],
+      ["Architektur", esc(e.machine)+` <span class="muted">(${esc(e.machine_raw||"")})</span>`, true],
+      ["Einsprungpunkt", esc(e.entry), true],
+      ["OS/ABI", esc(e.osabi||"–"), true],
+      ["Linking", esc(e.linking)+(e.interp?` · ${esc(e.interp)}`:""), true],
+      ["Gestrippt", flag(e.stripped), true],
+      ["NX (kein exec. Stack)", flag(e.nx), true],
+      ["PIE", flag(e.pie), true],
+      e.build_id?["Build-ID", esc(e.build_id)]:null,
+      e.needed&&e.needed.length?["Benötigte Libs", esc(e.needed.join(", ")), true]:null,
+      e.packer?["Packer", `<span class="flag-no">${esc(e.packer.name)}</span> <span class="muted">(${esc(e.packer.evidence)})</span>`, true]:null,
+      e.partial?["Hinweis", `<span class="muted">${esc(e.error||"Section-Header fehlen, nur Kopf/Segmente lesbar")}</span>`, true]:null,
+    ]) + `</div>`;
+
+    if (e.segments && e.segments.length){
+      h += `<div class="sec"><h3>Segmente (${e.segments.length})</h3><table class="t"><thead><tr><th>Typ</th><th>Rechte</th><th>VAdr</th><th>FileSz</th><th>MemSz</th></tr></thead><tbody>` +
+        e.segments.map(sg => `<tr><td>${esc(sg.type)}</td><td class="rwx">${esc(sg.flags)}</td><td>${esc(sg.vaddr)}</td><td>${n(sg.filesz)}</td><td>${n(sg.memsz)}</td></tr>`).join("") + `</tbody></table></div>`;
+    }
+    if (e.sections && e.sections.length){
+      h += `<div class="sec"><h3>Sektionen (${e.sections.length})</h3><div id="secwrap" style="max-height:220px;overflow:auto"><table class="t"><thead><tr><th>Name</th><th>Typ</th><th>Adresse</th><th>Größe</th><th>Entropie</th></tr></thead><tbody>` +
+        e.sections.map(sc => `<tr><td>${esc(sc.name||"–")}</td><td>${esc(sc.type)}</td><td>${esc(sc.addr)}</td><td>${n(sc.size)}</td><td>${sc.entropy||"–"}</td></tr>`).join("") + `</tbody></table></div></div>`;
+    }
+    if (e.imports && e.imports.length){
+      h += `<div class="sec"><h3>Importierte Funktionen (${e.imports.length})</h3><div class="chips">${e.imports.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div></div>`;
+    }
+  }
+
+  if (s.capabilities && s.capabilities.length){
+    h += `<div class="sec"><h3>Abgeleitete Fähigkeiten</h3><div class="caps">` +
+      s.capabilities.map(c => `<div class="cap"><span class="cd"></span><span class="cl">${esc(c.label)}</span><span class="ce">Fund: ${esc(c.evidence)}</span></div>`).join("") + `</div></div>`;
+  }
+
+  if (s.kind === "Script/Text" && s.preview){
+    h += `<div class="sec"><h3>Inhalt (Ausschnitt)</h3><pre class="code">${esc(s.preview)}</pre></div>`;
+  }
+
+  const iocs = [
+    iocBox("URLs", io.urls), iocBox("Mining-Pools", io.pools), iocBox("IP-Adressen", io.ips),
+    iocBox("Domains", io.domains), iocBox("Befehle", io.commands), iocBox("Dateipfade", io.paths),
+    iocBox("Zugangsdaten-Listen", io.creds), iocBox("IRC-Verkehr", io.irc), iocBox("Auffällige Strings", io.interesting),
+  ].filter(Boolean).join("");
+  if (iocs) h += `<div class="sec"><h3>Zeichenketten / IOCs</h3><div class="ioc-grid">${iocs}</div></div>`;
+  return h;
+}
+
+function select(id){
+  SEL = id;
+  const s = (DATA.samples||[]).find(x => x.id === id);
+  history.replaceState(null,"","#"+id);
+  $("rows").querySelectorAll(".row").forEach(b => b.setAttribute("aria-selected", b.dataset.id===id));
+  $("detail").innerHTML = s ? detailHTML(s) : `<div class="empty">Nicht gefunden.</div>`;
+  $("detail").scrollTop = 0;
+  const sel = $("rows").querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+  if (sel) sel.scrollIntoView({block:"nearest"});
+}
+
+function render(d){
+  DATA = d; CC = d.country_names || {};
+  $("pills").innerHTML = `<span class="pill"><span class="dot ${d.error?"warn":"ok"}"></span>Analyse ${ago(d.time)}</span><span class="pill">${n(d.count)} Samples</span>`;
+  const arches = [...new Set((d.samples||[]).map(s => s.elf && s.elf.machine).filter(Boolean))].sort();
+  const fa = $("farch"), cur = fa.value;
+  fa.innerHTML = `<option value="">alle Arch.</option>` + arches.map(a=>`<option>${esc(a)}</option>`).join("");
+  fa.value = cur;
+  renderList();
+  const want = decodeURIComponent(location.hash.slice(1));
+  const match = want && (d.samples||[]).find(s => s.id === want || s.id.startsWith(want));
+  if (match) select(match.id);
+  else if ((d.samples||[]).length && !SEL && innerWidth > 860) select(d.samples[0].id);
+}
+
+["q","fkind","farch"].forEach(id => $(id).addEventListener("input", () => { renderList(); }));
+
+async function refresh(){
+  try {
+    const r = await fetch("data/report.json?_="+Date.now(), {cache:"no-store"});
+    if (!r.ok) throw new Error("HTTP "+r.status);
+    render(await r.json());
+  } catch (err) {
+    $("detail").innerHTML = `<div class="empty">Daten konnten nicht geladen werden: ${esc(err.message)}</div>`;
+  }
+}
+refresh();
+setInterval(refresh, 120000);
+</script>
+</body>
+</html>
