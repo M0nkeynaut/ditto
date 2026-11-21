@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Honeypot &amp; Tarpit</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --panel2:#f0f1f4; --line:#e2e4e9;
+  --text:#1b1d22; --muted:#687080; --accent:#e5702a; --tarpit:#3b7ddd;
+  --ok:#1f9d55; --warn:#d99a00; --bad:#d64545;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --text:#e8eaef; --muted:#8c94a4; --accent:#ff8a3d; --tarpit:#5b9cff;
+    --ok:#35c27a; --warn:#f0b429; --bad:#ef5b5b; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+h1{font-size:20px;margin:0;display:flex;align-items:center;gap:10px}
+h1 a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500}
+h1 a:hover{color:var(--accent)}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:26px 0 10px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.kpi .lbl{font-size:12px;color:var(--muted)}
+.kpi .val{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px}
+.kpi .sub{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.kpi .tag{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.ptitle{font-size:13px;font-weight:600;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px}
+.ptitle small{font-weight:400;color:var(--muted)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .axis{fill:var(--muted);font-size:10px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .hit{fill:transparent;cursor:default}
+.chart .bar{transition:opacity .1s}
+.chart.hover .bar{opacity:.45} .chart.hover .bar.on{opacity:1}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.12);border-radius:8px;padding:6px 9px;font-size:12px;white-space:nowrap;transform:translate(-50%,-100%);display:none;z-index:5}
+.tip b{font-variant-numeric:tabular-nums}
+.toplist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.toplist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.toplist .k{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toplist .n{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.toplist .b{grid-column:1/-1;height:4px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.toplist .b i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.toplist.tp .b i{background:var(--tarpit)}
+.empty{color:var(--muted);font-size:12.5px;padding:6px 0}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap}
+.tbl td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;word-break:break-all}
+.tbl .when{white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px}
+.err{background:color-mix(in srgb,var(--bad) 12%,var(--panel));border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.note{font-size:12px;color:var(--muted);margin-top:28px}
+.help{font-size:12.5px;color:var(--muted);margin:-4px 0 12px;max-width:80ch}
+.panel .help{margin:-4px 0 10px;font-size:12px}
+.intro{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.intro h3{font-size:14px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.intro p{margin:0 0 8px;font-size:13px}
+.intro p:last-child{margin-bottom:0}
+.intro .ports{font-size:12px;color:var(--muted)}
+details.panel summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.panel summary::-webkit-details-marker{display:none}
+details.panel summary::after{content:"+";color:var(--muted);font-weight:400;font-size:16px}
+details.panel[open] summary::after{content:"−"}
+details.panel[open] summary{margin-bottom:10px}
+.attacks{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.atk h3{font-size:14px;margin:0 0 2px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.atk h3 span{font-size:12px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.atk .risk{font-size:11.5px;display:inline-flex;align-items:center;gap:5px;color:var(--muted);margin-bottom:6px}
+.atk p{margin:0 0 8px;font-size:12.5px}
+.atk code{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;background:var(--panel2);border-radius:6px;padding:5px 8px;word-break:break-all;color:var(--text)}
+.atk .ex{font-size:11px;color:var(--muted);margin:0 0 3px}
+@media (max-width:520px){
+  .grid2,.grid3{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .val{font-size:22px}
+  .hide-sm{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DITTO <span style="color:var(--muted);font-weight:500;font-size:14px">Honeypot &amp; Tarpit</span> <a href="report.html">Datei-Reports →</a></h1>
+    <div class="pills" id="pills"></div>
+  </header>
+  <div id="errbox"></div>
+
+  <details class="panel" id="about" open>
+    <summary>Was hier läuft</summary>
+    <div class="intro">
+      <div>
+        <h3><span class="kpi"><span class="tag" style="background:var(--accent)"></span></span>Honeypot (Cowrie)</h3>
+        <p>Ein Honeypot ist ein Köder. Cowrie gibt sich als gewöhnlicher Linux-Server aus und lässt Angreifer mit einfachen Passwörtern wie admin/admin hinein. Was sie danach sehen, ist eine nachgebaute Shell: Dateien, Prozesse und Systeminfos sind erfunden, kein Befehl wird wirklich ausgeführt.</p>
+        <p>Cowrie schreibt dabei alles mit: Benutzername und Passwort jedes Login-Versuchs, jeden eingegebenen Befehl und jede Datei, die der Angreifer nachladen will. So sieht man, wonach automatisierte Angriffe im Internet gerade suchen und welche Schadsoftware sie verteilen.</p>
+        <p class="ports">Von aussen erreichbar über SSH (Port 22) und Telnet (Port 23).</p>
+      </div>
+      <div>
+        <h3><span class="kpi"><span class="tag" style="background:var(--tarpit)"></span></span>Tarpit (endlessh)</h3>
+        <p>Ein Tarpit („Teergrube“) bremst Angreifer aus, statt sie zu beobachten. Ein SSH-Server schickt vor dem Login eine kurze Begrüssungszeile. endlessh schickt stattdessen alle zehn Sekunden eine zufällige Zeile und hört nie damit auf. Viele Scanner warten geduldig auf das Ende und hängen so Minuten bis Tage fest.</p>
+        <p>Jede Verbindung, die hier festhängt, belegt beim Angreifer Speicher und Zeit, die er nicht gegen andere Systeme einsetzen kann. endlessh selbst braucht dafür fast keine Ressourcen.</p>
+        <p class="ports">Von aussen erreichbar über Port 2222.</p>
+      </div>
+      <div>
+        <h3>Ist das gefährlich?</h3>
+        <p>Kaum. Angreifer kommen nie auf das echte System, sondern nur in die Nachbildung von Cowrie. Der Honeypot sollte trotzdem isoliert betrieben werden (eigenes Netz oder VLAN, Egress-Firewall), damit er das restliche Netzwerk nicht erreichen kann. Siehe die Sicherheitshinweise in der README.</p>
+        <p>Die Zahlen auf dieser Seite erzeugt der DITTO-Collector regelmässig aus den Logs von Cowrie und endlessh. Zugriffe aus privaten Netzen werden nicht mitgezählt.</p>
+      </div>
+    </div>
+  </details>
+
+  <h2>Letzte 24 Stunden</h2>
+  <p class="help">Orange steht für den Honeypot, Blau für den Tarpit. Die kleine Zeile unter jeder Zahl zeigt denselben Wert für die letzten 7 Tage. Ein „erfolgreicher“ Login heisst nur, dass Cowrie den Angreifer in die nachgebaute Shell gelassen hat.</p>
+  <div class="kpis" id="kpis"></div>
+
+  <h2>Erkannte Angriffsarten (7 Tage)</h2>
+  <p class="help">Jede Sitzung im Honeypot wird anhand der eingegebenen Befehle eingeordnet. Eine Sitzung kann zu mehreren Arten gehören, etwa wenn ein Bot zuerst das System erkundet und dann Schadsoftware nachlädt. Gezählt werden Sitzungen und unterschiedliche IP-Adressen.</p>
+  <div class="attacks" id="attacks"></div>
+
+  <h2>Verlauf (48 Stunden, pro Stunde)</h2>
+  <p class="help">Neue Verbindungen pro Stunde. Ein einzelner hoher Balken stammt meist von einem Bot, der viele Verbindungen kurz hintereinander öffnet. Fährt man mit der Maus über einen Balken, erscheint die genaue Zahl.</p>
+  <div class="grid2">
+    <div class="panel"><div class="ptitle">Honeypot, neue Verbindungen <small id="sum-hp"></small></div><div class="chart" id="ch-hp"></div></div>
+    <div class="panel"><div class="ptitle">Tarpit, neue Verbindungen <small id="sum-tp"></small></div><div class="chart" id="ch-tp"></div></div>
+  </div>
+
+  <h2>Herkunftsländer (7 Tage)</h2>
+  <p class="help">Das Land, in dem die IP-Adresse des Absenders registriert ist. Das ist selten das Land des Täters: Angriffe laufen meist über gekaperte Geräte, gemietete Cloud-Server oder VPNs. Viele Verbindungen aus einem Land heissen deshalb vor allem, dass dort viele unsichere Geräte oder günstige Server stehen.</p>
+  <div class="grid2">
+    <div class="panel"><div class="ptitle">Honeypot <small>Verbindungen · IPs</small></div><ul class="toplist" id="l-cc-hp"></ul></div>
+    <div class="panel"><div class="ptitle">Tarpit <small>Verbindungen · IPs</small></div><ul class="toplist tp" id="l-cc-tp"></ul></div>
+  </div>
+
+  <h2>Was Angreifer versuchen (7 Tage)</h2>
+  <div class="grid3">
+    <div class="panel"><div class="ptitle">Benutzer / Passwort</div><p class="help">Die häufigsten Kombinationen bei Login-Versuchen. Meist sind es Werkseinstellungen von Routern, Kameras und NAS-Geräten.</p><ul class="toplist" id="l-combos"></ul></div>
+    <div class="panel"><div class="ptitle">Benutzernamen</div><p class="help">Welche Konten ausprobiert werden. root und admin kommen fast immer vor, dazu Namen von Diensten wie oracle, postgres oder ubuntu.</p><ul class="toplist" id="l-users"></ul></div>
+    <div class="panel"><div class="ptitle">Passwörter</div><p class="help">Die häufigsten Passwörter, unabhängig vom Benutzernamen. Sie stammen aus Listen bekannter Standard- und Leak-Passwörter.</p><ul class="toplist" id="l-pwds"></ul></div>
+    <div class="panel"><div class="ptitle">Befehle</div><p class="help">Was nach dem Login eingetippt wurde. Fast alles kommt von Skripten, nicht von Menschen. Gleiche Befehle in gleicher Reihenfolge deuten auf dasselbe Botnetz hin.</p><ul class="toplist" id="l-cmds"></ul></div>
+    <div class="panel"><div class="ptitle">Angreifer-IPs (Honeypot)</div><p class="help">Absender mit den meisten Verbindungen. Oft sind es selbst gekaperte Geräte oder gemietete Server, nicht der eigentliche Täter.</p><ul class="toplist" id="l-ips"></ul></div>
+    <div class="panel"><div class="ptitle">Am längsten festgehalten (Tarpit)</div><p class="help">Gesamte Zeit, die ein Absender im Tarpit gewartet hat. Lange Zeiten zeigen schlecht programmierte Scanner, die keine Zeitbegrenzung haben.</p><ul class="toplist tp" id="l-held"></ul></div>
+  </div>
+
+  <h2>Letzte Sitzungen im Honeypot</h2>
+  <p class="help">Die 25 neuesten Verbindungen zu Cowrie. „drin“ heisst, der Angreifer wurde in die nachgebaute Shell gelassen. Sitzungen ohne Login sind meist Scanner, die nur prüfen, ob der Port offen ist und welche SSH-Version antwortet.</p>
+  <div class="panel scroll"><table class="tbl" id="t-sess"></table></div>
+
+  <h2>Heruntergeladene Dateien</h2>
+  <p class="help">Dateien, die Angreifer aus dem Internet nachladen wollten, meist Schadsoftware für Botnetze oder Krypto-Mining. Cowrie speichert sie, führt sie aber nicht aus. Ein Klick auf „Report“ öffnet die ausführliche statische Analyse mit ELF-Struktur, Fähigkeiten und IOCs. <a href="report.html">→ Alle Datei-Reports</a></p>
+  <div class="panel scroll"><table class="tbl" id="t-dl"></table></div>
+
+  <p class="note">Daten vom DITTO-Collector, regelmässig aktualisiert. Ausgewertet werden die letzten Tage. Optionale Länderzuordnung lokal mit der Datenbank <a href="https://db-ip.com" style="color:inherit">IP Geolocation by DB-IP</a> (CC BY 4.0). DITTO ist vibe-coded mit Claude und nicht sicherheitsauditiert.</p>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf = new Intl.NumberFormat("de-CH");
+const n = v => nf.format(v || 0);
+function dur(sec){
+  sec = Math.round(sec || 0);
+  if (sec < 60) return sec + " s";
+  if (sec < 3600) return Math.round(sec / 60) + " min";
+  if (sec < 86400) return (sec / 3600).toFixed(sec < 36000 ? 1 : 0).replace(".", ",") + " h";
+  return (sec / 86400).toFixed(1).replace(".", ",") + " Tage";
+}
+const fmtTime = t => new Date(t * 1000).toLocaleString("de-CH", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+const fmtHour = t => new Date(t * 1000).toLocaleTimeString("de-CH", {hour:"2-digit", minute:"2-digit"});
+function ago(t){
+  const s = Math.max(0, Date.now() / 1000 - t);
+  return s < 90 ? "gerade eben" : s < 3600 ? "vor " + Math.round(s / 60) + " min" : "vor " + Math.round(s / 3600) + " h";
+}
+
+function kpi(label, val, sub, color){
+  return `<div class="panel kpi"><div class="lbl">${color ? `<span class="tag" style="background:var(${color})"></span>` : ""}${esc(label)}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+}
+
+function barChart(el, tl, color, label){
+  const bins = tl?.bins || [], start = tl?.start || 0;
+  const W = 600, H = 140, L = 30, B = 18, T = 6;
+  const max = Math.max(1, ...bins);
+  const step = Math.pow(10, Math.floor(Math.log10(max)));
+  const tick = [1, 2, 5, 10].map(m => m * step).find(s => max / s <= 4) || step * 10;
+  const top = Math.ceil(max / tick) * tick;
+  const bw = (W - L) / Math.max(1, bins.length);
+  const y = v => T + (H - B - T) * (1 - v / top);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">`;
+  for (let v = 0; v <= top; v += tick){
+    s += `<line class="grid" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${n(v)}</text>`;
+  }
+  bins.forEach((v, i) => {
+    const x = L + i * bw + 1, w = Math.max(1, bw - 2), h = Math.max(0, (H - B) - y(v));
+    if (v > 0){
+      const r = Math.min(2, w / 2, h);
+      s += `<path class="bar" data-i="${i}" fill="var(${color})" d="M${x},${H - B} V${y(v) + r} q0,-${r} ${r},-${r} H${x + w - r} q${r},0 ${r},${r} V${H - B} Z"/>`;
+    }
+    if (i % 6 === 0) s += `<text class="axis" x="${x + w / 2}" y="${H - 4}" text-anchor="middle">${fmtHour(start + i * 3600)}</text>`;
+    s += `<rect class="hit" data-i="${i}" x="${L + i * bw}" y="0" width="${bw}" height="${H - B}"/>`;
+  });
+  el.innerHTML = s + "</svg>";
+  const svg = el.querySelector("svg"), tip = $("tip");
+  svg.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("mouseenter", () => {
+      const i = +r.dataset.i, t0 = start + i * 3600;
+      el.classList.add("hover");
+      svg.querySelectorAll(".bar").forEach(b => b.classList.toggle("on", +b.dataset.i === i));
+      tip.innerHTML = `${fmtTime(t0)}–${fmtHour(t0 + 3600)}<br><b>${n(bins[i])}</b> Verbindungen`;
+      const rb = r.getBoundingClientRect();
+      tip.style.left = (rb.left + rb.width / 2 + scrollX) + "px";
+      tip.style.top = (rb.top + scrollY + 10) + "px";
+      tip.style.display = "block";
+    });
+    r.addEventListener("mouseleave", () => { el.classList.remove("hover"); tip.style.display = "none"; });
+  });
+}
+
+let CC = {};
+const CC_SHORT = {GB: "Grossbritannien", US: "USA", KR: "Südkorea", KP: "Nordkorea", HK: "Hongkong", MO: "Macau",
+  RU: "Russland", TW: "Taiwan", IR: "Iran", SY: "Syrien", VN: "Vietnam", MD: "Moldau", LA: "Laos", BO: "Bolivien",
+  VE: "Venezuela", TZ: "Tansania", CD: "Kongo (Kinshasa)", CG: "Kongo (Brazzaville)", AE: "Vereinigte Arabische Emirate",
+  CZ: "Tschechien", NL: "Niederlande", PS: "Palästina", MK: "Nordmazedonien", BN: "Brunei", FM: "Mikronesien"};
+const ccName = cc => cc === "??" || !cc ? "unbekannt" : (CC_SHORT[cc] || (CC[cc] || cc).replace(/ß/g, "ss"));
+const withCC = (ip, cc) => cc && cc !== "??" ? `${ip} · ${cc}` : ip;
+
+function topList(el, rows, fmt, label){
+  if (!rows || !rows.length){ el.innerHTML = `<li class="empty">Noch nichts erfasst.</li>`; return; }
+  const max = rows[0][1] || 1;
+  el.innerHTML = rows.map(r => {
+    const [k, v] = r, text = label ? label(r) : k;
+    return `<li title="${esc(text)}"><span class="k">${text === "" ? "<i>(leer)</i>" : esc(text)}</span><span class="n">${fmt ? fmt(v, r) : n(v)}</span><span class="b"><i style="width:${Math.max(2, v / max * 100)}%"></i></span></li>`;
+  }).join("");
+}
+
+const ATTACKS = {
+  botnet: {name: "IoT-Botnetz (Mirai und Ableger)", risk: "hoch",
+    text: "Bots suchen Router, Kameras und andere Geräte mit Standardpasswort. Befehle wie /bin/busybox HISILICON prüfen, ob das Gerät mit BusyBox läuft, wie es auf vielen Embedded-Geräten üblich ist. Passt es, lädt der Bot seine Schadsoftware nach und das Gerät wird Teil eines Botnetzes, das zum Beispiel für DDoS-Angriffe vermietet wird."},
+  download: {name: "Schadsoftware nachladen", risk: "hoch",
+    text: "Mit wget, curl oder tftp holt der Angreifer ein Programm von einem fremden Server und will es starten. Das ist meist der eigentliche Zweck des Einbruchs. Die Dateien stehen unten unter „Heruntergeladene Dateien“."},
+  miner: {name: "Krypto-Mining", risk: "hoch",
+    text: "Der Angreifer will Rechenleistung stehlen und installiert einen Miner, oft XMRig für Monero. Auf einem echten Server fällt das durch dauerhaft hohe CPU-Last auf."},
+  persistence: {name: "Sich festsetzen", risk: "hoch",
+    text: "Einträge in authorized_keys, crontab oder Startskripten sollen dafür sorgen, dass der Angreifer auch nach einem Neustart oder Passwortwechsel wieder hineinkommt."},
+  account: {name: "Konto übernehmen", risk: "mittel",
+    text: "Passwort ändern oder neue Benutzer anlegen. Damit sperrt der Angreifer den Besitzer und konkurrierende Botnetze aus."},
+  cleanup: {name: "Spuren verwischen, Konkurrenz beenden", risk: "mittel",
+    text: "Verlauf löschen, temporäre Ordner leeren oder fremde Prozesse beenden. Viele Bots werfen so andere Schadsoftware vom gekaperten Gerät, um es allein zu nutzen."},
+  recon: {name: "System erkunden", risk: "mittel",
+    text: "Befehle wie uname, nproc oder cat /proc/cpuinfo fragen Betriebssystem, Prozessor und Speicher ab. Danach entscheidet das Skript, welche Variante der Schadsoftware passt oder ob sich Mining lohnt."},
+  login_only: {name: "Login ohne Befehle", risk: "gering",
+    text: "Der Angreifer kam hinein und hat die Verbindung gleich wieder getrennt. Oft prüft ein Bot nur, ob ein Passwort funktioniert, und verkauft die Zugangsdaten weiter oder kommt später mit einem anderen Werkzeug zurück."},
+  bruteforce: {name: "Passwort raten", risk: "gering",
+    text: "Nur fehlgeschlagene Login-Versuche. Der Bot arbeitet eine Liste mit Benutzernamen und Passwörtern ab, bis eines passt."},
+  scan: {name: "Port-Scan", risk: "gering",
+    text: "Verbindung ohne Login-Versuch. Suchmaschinen wie Shodan oder Censys und die Scanner von Botnetzen prüfen nur, ob der Port offen ist und welche Software antwortet."},
+};
+const RISK_DOT = {hoch: "bad", mittel: "warn", gering: ""};
+
+function renderAttacks(att){
+  att = att || {};
+  const seen = Object.keys(ATTACKS).filter(k => att[k]).sort((a, b) => att[b].sessions - att[a].sessions);
+  const unseen = Object.keys(ATTACKS).filter(k => !att[k]);
+  let h = seen.map(k => {
+    const a = att[k], m = ATTACKS[k];
+    return `<div class="panel atk"><h3>${esc(m.name)}<span>${n(a.sessions)} Sitzungen · ${n(a.ips)} IPs</span></h3>
+      <div class="risk"><span class="dot ${RISK_DOT[m.risk]}"></span>Schwere: ${m.risk} · zuletzt ${ago(a.last)}</div>
+      <p>${esc(m.text)}</p>${a.example ? `<div class="ex">Beispiel aus den Logs</div><code>${esc(a.example)}</code>` : ""}</div>`;
+  }).join("");
+  if (!seen.length) h = `<div class="panel empty">Noch keine Sitzungen ausgewertet.</div>`;
+  if (unseen.length) h += `<div class="panel atk"><h3>Noch nicht beobachtet</h3><p>${unseen.map(k => esc(ATTACKS[k].name)).join(", ")}.</p></div>`;
+  $("attacks").innerHTML = h;
+}
+
+function render(d){
+  const c = d.cowrie || {}, e = d.endlessh || {}, sv = d.services || {};
+  const stale = Date.now() / 1000 - d.time > 300;
+  const st = (name, val, ok) => `<span class="pill"><span class="dot ${ok ? "ok" : "bad"}"></span>${esc(name)}: ${esc(val || "?")}</span>`;
+  $("pills").innerHTML = (d.error ? "" : st("Cowrie", sv.cowrie, sv.cowrie === "running") + st("endlessh", sv.endlessh, sv.endlessh === "active")) +
+    `<span class="pill"><span class="dot ${stale || d.error ? "warn" : "ok"}"></span>Stand ${ago(d.time)}</span>`;
+  const errs = [d.error, c.error && "Cowrie: " + c.error, e.error && "endlessh: " + e.error].filter(Boolean);
+  $("errbox").innerHTML = errs.length ? `<div class="panel err">${errs.map(esc).join("<br>")}</div>` : "";
+  if (d.error) return;
+
+  const day = c.day || {}, wk = c.week || {}, ec = e.connections || {}, et = e.trapped_seconds || {};
+  const logins = (day.logins_ok || 0) + (day.logins_failed || 0);
+  $("kpis").innerHTML =
+    kpi("Honeypot-Verbindungen", n(day.connections), `7 Tage: ${n(wk.connections)}`, "--accent") +
+    kpi("Login-Versuche", n(logins), `davon „erfolgreich“: ${n(day.logins_ok)}`, "--accent") +
+    kpi("Eingegebene Befehle", n(day.commands), `7 Tage: ${n(wk.commands)}`, "--accent") +
+    kpi("Angreifer-IPs", n(day.ips), `7 Tage: ${n(wk.ips)}`, "--accent") +
+    kpi("Tarpit-Verbindungen", n(ec.day), `7 Tage: ${n(ec.week)}`, "--tarpit") +
+    kpi("Verschwendete Bot-Zeit", dur(et.day), `7 Tage: ${dur(et.week)}`, "--tarpit") +
+    kpi("Gerade festgehalten", n(e.now), `${n(e.unique_ips)} IPs in 7 Tagen`, "--tarpit");
+
+  renderAttacks(c.attacks);
+
+  const sum = tl => n((tl?.bins || []).reduce((a, b) => a + b, 0)) + " in 48 h";
+  barChart($("ch-hp"), c.timeline, "--accent", "Honeypot-Verbindungen pro Stunde");
+  barChart($("ch-tp"), e.timeline, "--tarpit", "Tarpit-Verbindungen pro Stunde");
+  $("sum-hp").textContent = sum(c.timeline);
+  $("sum-tp").textContent = sum(e.timeline);
+
+  topList($("l-combos"), c.top_combos);
+  topList($("l-users"), c.top_users);
+  topList($("l-pwds"), c.top_passwords);
+  topList($("l-cmds"), c.top_commands);
+  CC = d.country_names || {};
+  const ipLabel = r => withCC(r[0], r[2]);
+  const ccLabel = r => `${ccName(r[0])}${r[0] && r[0] !== "??" ? " (" + r[0] + ")" : ""}`;
+  const ccCount = (v, r) => `${n(v)} · ${n(r[2])}`;
+  topList($("l-ips"), c.top_ips, null, ipLabel);
+  topList($("l-held"), e.top_held, dur, ipLabel);
+  topList($("l-cc-hp"), c.countries, ccCount, ccLabel);
+  topList($("l-cc-tp"), e.countries, ccCount, ccLabel);
+
+  const sess = c.recent || [];
+  $("t-sess").innerHTML = sess.length ? `<thead><tr><th>Zeit</th><th>IP</th><th>Land</th><th>Dienst</th><th>Login</th><th class="num">Befehle</th><th class="num hide-sm">Dauer</th></tr></thead><tbody>` +
+    sess.map(s => `<tr><td class="when">${fmtTime(s.t)}</td><td class="mono">${esc(s.ip)}</td><td title="${esc(ccName(s.cc))}">${esc(ccName(s.cc))}</td><td>${esc((s.proto || "").toUpperCase())}</td>` +
+      `<td>${s.login ? `<span class="badge"><span class="dot ${s.login.ok ? "warn" : ""}"></span><span class="mono">${esc(s.login.user)}</span>${s.login.ok ? " (drin)" : ""}</span>` : `<span style="color:var(--muted)">–</span>`}</td>` +
+      `<td class="num">${n(s.cmds)}</td><td class="num hide-sm">${s.dur != null ? dur(s.dur) : "offen"}</td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td class="empty">Noch keine Sitzungen.</td></tr></tbody>`;
+
+  const dl = c.downloads || [];
+  $("t-dl").innerHTML = dl.length ? `<thead><tr><th>Zeit</th><th>IP</th><th>URL</th><th class="hide-sm">SHA-256</th><th>Report</th></tr></thead><tbody>` +
+    dl.map(x => `<tr><td class="when">${fmtTime(x.t)}</td><td class="mono">${esc(withCC(x.ip, x.cc))}</td><td class="mono">${esc(x.url)}</td><td class="mono hide-sm">${x.sha256 ? `<a href="report.html#${esc(x.sha256)}">${esc(x.sha256.slice(0, 16))}…</a>` : ""}</td><td>${x.sha256 ? `<a href="report.html#${esc(x.sha256)}">öffnen</a>` : "–"}</td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td class="empty">Bisher wurde keine Malware nachgeladen.</td></tr></tbody>`;
+}
+
+async function refresh(){
+  try {
+    const r = await fetch("data/stats.json?_=" + Date.now(), {cache: "no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    render(await r.json());
+  } catch (err) {
+    $("errbox").innerHTML = `<div class="panel err">Daten konnten nicht geladen werden: ${esc(err.message)}</div>`;
+  }
+}
+// Erklärblock auf- oder zugeklappt merken (nur in diesem Browser)
+try {
+  const about = $("about");
+  if (localStorage.getItem("hp-about") === "closed") about.open = false;
+  about.addEventListener("toggle", () => { try { localStorage.setItem("hp-about", about.open ? "open" : "closed"); } catch (e) {} });
+} catch (e) {}
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
